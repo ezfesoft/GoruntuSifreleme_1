@@ -1,5 +1,9 @@
 import cv2
 import numpy as np
+import time
+
+# Başlangıç zamanını al
+start_time = time.time()
 
 def crop_to_square(image):
     """
@@ -34,7 +38,7 @@ else:
     cropped_image = crop_to_square(image)
 
     # Kırpılmış görüntüyü 256x256 boyutuna yeniden boyutlandır
-    resized_image = cv2.resize(cropped_image, (255, 255))
+    resized_image = cv2.resize(cropped_image, (256, 256))
 
     # Kırpılmış ve yeniden boyutlandırılmış görüntüyü kaydet
     cv2.imwrite(output_cropped_image_path, resized_image)
@@ -84,22 +88,22 @@ print(sifre)
 
 import cv2
 import numpy as np
-
 def vigenere_encrypt_pixel_values(image, key):
     """
     Görüntü piksel değerlerini Vigenère şifreleme ile şifreler.
     """
-    encrypted_image = np.zeros_like(image)
+    encrypted_image = np.zeros_like(image, dtype=np.uint8)  # Şifreli görüntü oluştur
     key_length = len(key)
+    h, w, _ = image.shape  # Görüntü boyutlarını al
 
-    # Şifreleme işlemi (her kanal için ayrı ayrı)
-    for y in range(image.shape[0]):
-        for x in range(image.shape[1]):
-            for c in range(3):  # BGR kanalları
-                original_value = image[y, x, c]
-                key_value = ord(key[(y * image.shape[1] + x) % key_length]) % 255
-                encrypted_value = (original_value + key_value) % 255
-                encrypted_image[y, x, c] = encrypted_value
+    for y in range(h):
+        for x in range(w):
+            for c in range(3):  # BGR kanalları için döngü
+                original_value = image[y, x, c]  # Orijinal piksel değeri
+                key_value = ord(key[(y * w + x) % key_length]) % 255  # 256 sınırı getirildi
+                encrypted_value = (original_value + key_value) % 255  # 256 ile mod alma
+
+                encrypted_image[y, x, c] = np.uint8(encrypted_value)  # `uint8` dönüşümü
 
     return encrypted_image
 
@@ -254,7 +258,6 @@ print(f"Piksel değerlerine şifreleme uygulanmış görüntü '{output_pixel_va
 encrypted_pixel_positions2 = vigenere_encrypt_pixel_positions(encrypted_pixel_values2, vigenere_key)
 cv2.imwrite(output_pixel_position_encrypted2, encrypted_pixel_positions2)
 print(f"Piksel konumlarına şifreleme uygulanmış görüntü '{output_pixel_position_encrypted2}' olarak kaydedildi.")
-
 import numpy as np
 import cv2
 import matplotlib.pyplot as plt
@@ -271,31 +274,37 @@ def logistic_map(x, r, iterations):
 
 # 2. Görüntüyü Okuma
 def read_image(image_path):
-    image = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)  # Gri tonlamada okuma
+    image = cv2.imread(image_path)  # Renkli okuma (BGR formatında)
     return image
 
 
 # 3. Kaotik Diziyi Yer Değiştirme Pozisyonu Matrisi İçin Kullanma
 def create_position_matrix(image, logistic_sequence):
-    height, width = image.shape
+    height, width, channels = image.shape
     num_pixels = height * width
 
-    # Logistic harita çıktısını, görüntü boyutuna göre yeniden şekillendir
-    if len(logistic_sequence) < num_pixels:
-        # Eğer kaotik dizi görüntü boyutuna eşit değilse, diziyi çoğaltarak genişletiyoruz
-        repeat_factor = (num_pixels // len(logistic_sequence)) + 1
-        logistic_sequence = np.tile(logistic_sequence, repeat_factor)[:num_pixels]
+    shuffled_image = np.zeros_like(image)
 
-    positions = np.argsort(logistic_sequence)  # Logistic dizisini sıralayıp pozisyonları alıyoruz
+    for c in range(channels):
+        channel_data = image[:, :, c].flatten()
 
-    # Yeni pozisyonlar ile piksel sırasını karıştırma
-    shuffled_image = image.flatten()[positions].reshape(height, width)
+        # Logistic harita çıktısını görüntü boyutuna göre genişlet
+        if len(logistic_sequence) < num_pixels:
+            repeat_factor = (num_pixels // len(logistic_sequence)) + 1
+            logistic_sequence = np.tile(logistic_sequence, repeat_factor)[:num_pixels]
+
+        positions = np.argsort(logistic_sequence)  # Pozisyonları al
+        shuffled_channel = channel_data[positions].reshape(height, width)
+        shuffled_image[:, :, c] = shuffled_channel
+
     return shuffled_image
 
 
 # 4. Şifreli Görüntüyü Gösterme
 def show_image(image):
-    plt.imshow(image, cmap='gray')
+    image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)  # BGR'den RGB'ye çevir
+    plt.imshow(image_rgb)
+    plt.axis('off')
     plt.show()
 
 
@@ -305,8 +314,7 @@ def save_image(image, output_path):
 
 
 # Ana Fonksiyon
-def encrypt_image(image_path, output_path, r=3.99, iterations=65025):  # iterations'ı görüntü boyutuna göre ayarladık
-    # Başlangıç değeri ve parametre
+def encrypt_image(image_path, output_path, r=3.99, iterations=65025):
     x_initial = 0.5  # Logistic harita için başlangıç değeri
     logistic_sequence = logistic_map(x_initial, r, iterations)
 
@@ -324,8 +332,15 @@ def encrypt_image(image_path, output_path, r=3.99, iterations=65025):  # iterati
 
 
 # Şifreleme işlemi için bir örnek görüntü yolu
-
 image_path = 'sifreli_piksel_konum_v2.png'
 output_path = 'SONUC.png'
 encrypt_image(image_path, output_path)
+
+end_time = time.time()
+
+# Geçen süreyi hesapla
+elapsed_time = end_time - start_time
+
+# Geçen süreyi yazdır
+print(f"Geçen süre: {elapsed_time} saniye")
 
